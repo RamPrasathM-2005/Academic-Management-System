@@ -34,16 +34,12 @@ import RequestCoursesAdmin from './pages/admin/RequestCoursesAdmin.jsx';
 
 // Staff Pages
 
-import StaffDashboard from "./pages/staff/Dashboard";
+
 import Attendance from "./pages/staff/Attendance";
 import MarksAllocation from "./pages/staff/MarksAllocation";
 import Options from "./pages/staff/Options";
 import InternalMarks from "./pages/staff/InternalMarks";
 import StaffDashboard from './pages/staff/Dashboard';
-import Attendance from './pages/staff/Attendance';
-import MarksAllocation from './pages/staff/MarksAllocation';
-import Options from './pages/staff/Options';
-import InternalMarks from './pages/staff/InternalMarks';
 import RequestCoursesStaff from './pages/staff/RequestCoursesStaff.jsx'
 
 // Student Pages

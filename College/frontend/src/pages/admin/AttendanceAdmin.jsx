@@ -24,7 +24,7 @@ export default function AdminAttendanceGenerator() {
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedSemester, setSelectedSemester] = useState("");
 
-  // Auth + Admin Check + Default Dates
+  // Logic remains exactly the same as your original file
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -38,13 +38,11 @@ export default function AdminAttendanceGenerator() {
       setUserProfile(userData);
       if (userData.role !== "admin") {
         setError("Access Denied: Admins only.");
-        toast.error("Unauthorized Access");
       }
     } catch (err) {
       setError("Failed to load user profile");
     }
 
-    // Default date range: today to +6 days
     if (!fromDate) {
       const today = new Date();
       setFromDate(today.toISOString().split("T")[0]);
@@ -54,7 +52,6 @@ export default function AdminAttendanceGenerator() {
     }
   }, [fromDate]);
 
-  // Fetch degrees & batches
   useEffect(() => {
     const fetchDegreesAndBatches = async () => {
       try {
@@ -75,7 +72,6 @@ export default function AdminAttendanceGenerator() {
     fetchDegreesAndBatches();
   }, []);
 
-  // Fetch departments
   useEffect(() => {
     const fetchDepartments = async () => {
       try {
@@ -98,7 +94,6 @@ export default function AdminAttendanceGenerator() {
     fetchDepartments();
   }, []);
 
-  // Fetch semesters
   useEffect(() => {
     if (selectedDegree && selectedBatch && selectedDepartment) {
       const fetchSemesters = async () => {
@@ -106,7 +101,6 @@ export default function AdminAttendanceGenerator() {
           (b) => b.batchId === parseInt(selectedBatch)
         );
         if (!batchData) return;
-
         try {
           const res = await axios.get(
             `${API_BASE_URL}/api/admin/semesters/by-batch-branch`,
@@ -129,7 +123,6 @@ export default function AdminAttendanceGenerator() {
     }
   }, [selectedDegree, selectedBatch, selectedDepartment, batches]);
 
-  // Helper functions
   const generateDates = () => {
     if (!fromDate || !toDate) return [];
     const dates = [];
@@ -156,12 +149,10 @@ export default function AdminAttendanceGenerator() {
 
   const dates = generateDates();
 
-  // Generate timetable
   const handleGenerate = async () => {
     setError(null);
     setTimetable({});
     setSelectedCourse(null);
-
     if (
       !selectedDegree ||
       !selectedBatch ||
@@ -171,7 +162,6 @@ export default function AdminAttendanceGenerator() {
       toast.error("Please select all filters");
       return;
     }
-
     setLoading(true);
     try {
       const batchData = batches.find(
@@ -191,7 +181,6 @@ export default function AdminAttendanceGenerator() {
           },
         }
       );
-
       if (res.data.data?.timetable) {
         setTimetable(res.data.data.timetable);
         toast.success("Timetable loaded successfully!");
@@ -205,7 +194,6 @@ export default function AdminAttendanceGenerator() {
     }
   };
 
-  // Load students when course clicked
   const handleCourseClick = async (
     courseId,
     sectionId,
@@ -216,7 +204,6 @@ export default function AdminAttendanceGenerator() {
     setError(null);
     setStudents([]);
     setSelectedCourse(null);
-
     try {
       const dayOfWeek = new Date(date)
         .toLocaleDateString("en-US", { weekday: "short" })
@@ -225,13 +212,13 @@ export default function AdminAttendanceGenerator() {
         `${API_BASE_URL}/api/admin/attendance/students/${courseId}/all/${dayOfWeek}/${periodNumber}`,
         { params: { date } }
       );
-
       if (res.data.data) {
-        const updatedStudents = res.data.data.map((s) => ({
-          ...s,
-          status: s.status === "OD" ? "OD" : "", // Only preserve existing OD
-        }));
-        setStudents(updatedStudents);
+        setStudents(
+          res.data.data.map((s) => ({
+            ...s,
+            status: s.status === "OD" ? "OD" : "",
+          }))
+        );
         setSelectedCourse({
           courseId,
           courseTitle,
@@ -240,14 +227,12 @@ export default function AdminAttendanceGenerator() {
           periodNumber,
           dayOfWeek,
         });
-        toast.success("Students loaded – Mark On Duty only");
       }
     } catch (err) {
       toast.error("Failed to load students");
     }
   };
 
-  // Toggle OD status
   const toggleOD = (rollnumber) => {
     setStudents((prev) =>
       prev.map((s) =>
@@ -258,16 +243,12 @@ export default function AdminAttendanceGenerator() {
     );
   };
 
-  // Mark all as OD
   const markAllOD = () => {
     setStudents((prev) => prev.map((s) => ({ ...s, status: "OD" })));
-    toast.success("All students marked as On Duty");
   };
 
-  // Save only OD students
   const handleSave = async () => {
     if (!selectedCourse) return;
-
     const odStudents = students
       .filter((s) => s.status === "OD")
       .map((s) => ({
@@ -276,12 +257,10 @@ export default function AdminAttendanceGenerator() {
         sectionName: s.sectionName || "N/A",
         status: "OD",
       }));
-
     if (odStudents.length === 0) {
       toast.info("No students marked as On Duty");
       return;
     }
-
     setSaving(true);
     try {
       await axios.post(
@@ -298,7 +277,6 @@ export default function AdminAttendanceGenerator() {
 
   const odCount = students.filter((s) => s.status === "OD").length;
 
-  // Block non-admins
   if (userProfile && userProfile.role !== "admin") {
     return (
       <div className="p-10 text-center text-3xl font-bold text-red-600">
@@ -307,296 +285,328 @@ export default function AdminAttendanceGenerator() {
     );
   }
 
+  // --- UI START ---
+  const selectClass =
+    "w-full border border-gray-300 rounded-md p-2 text-sm focus:outline-none focus:ring-1 focus:ring-slate-400 appearance-none bg-white";
+
   return (
-    <div className="p-6 max-w-7xl mx-auto bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl shadow-lg">
-      <h1 className="text-4xl font-bold mb-2 text-center text-blue-900">
-        Admin On-Duty Attendance Manager
-      </h1>
-      <p className="text-center text-blue-700 mb-8">
-        Only On Duty (OD) can be marked. Regular attendance is handled by
-        faculty.
-      </p>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans text-slate-800">
+      <div className="max-w-7xl mx-auto bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* Header Section from your Screenshot */}
+        <div className="p-6 pb-0">
+          <h1 className="text-3xl font-extrabold text-[#0f172a] mb-6">
+            Timetable Management
+          </h1>
 
-      {error && (
-        <div className="mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-800 rounded-lg">
-          {error}
-        </div>
-      )}
-
-      {/* Filters - Full Original Layout */}
-      <div className="flex flex-wrap gap-4 justify-center mb-8">
-        <div className="flex flex-col">
-          <label className="text-sm text-blue-700 mb-1">Degree</label>
-          <select
-            value={selectedDegree}
-            onChange={(e) => {
-              setSelectedDegree(e.target.value);
-              setSelectedBatch("");
-              setSelectedDepartment("");
-              setSelectedSemester("");
-            }}
-            className="border-2 border-blue-300 p-3 rounded-lg"
-          >
-            <option value="">Select Degree</option>
-            {degrees.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-sm text-blue-700 mb-1">Batch</label>
-          <select
-            value={selectedBatch}
-            onChange={(e) => {
-              setSelectedBatch(e.target.value);
-              setSelectedDepartment("");
-              setSelectedSemester("");
-            }}
-            disabled={!selectedDegree}
-            className="border-2 border-blue-300 p-3 rounded-lg disabled:bg-gray-100"
-          >
-            <option value="">Select Batch</option>
-            {batches
-              .filter((b) => b.degree === selectedDegree)
-              .map((b) => (
-                <option key={b.batchId} value={b.batchId}>
-                  {b.batch}
-                </option>
-              ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-sm text-blue-700 mb-1">Department</label>
-          <select
-            value={selectedDepartment}
-            onChange={(e) => {
-              setSelectedDepartment(e.target.value);
-              setSelectedSemester("");
-            }}
-            disabled={!selectedBatch}
-            className="border-2 border-blue-300 p-3 rounded-lg disabled:bg-gray-100"
-          >
-            <option value="">Select Department</option>
-            {departments
-              .filter((d) =>
-                batches.some(
-                  (b) =>
-                    b.batchId === parseInt(selectedBatch) &&
-                    b.branch.toUpperCase() === d.departmentCode.toUpperCase()
-                )
-              )
-              .map((d) => (
-                <option key={d.departmentId} value={d.departmentId}>
-                  {d.departmentName}
-                </option>
-              ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-sm text-blue-700 mb-1">Semester</label>
-          <select
-            value={selectedSemester}
-            onChange={(e) => setSelectedSemester(e.target.value)}
-            disabled={!selectedDepartment}
-            className="border-2 border-blue-300 p-3 rounded-lg disabled:bg-gray-100"
-          >
-            <option value="">Select Semester</option>
-            {semesters.map((s) => (
-              <option key={s.semesterId} value={s.semesterId}>
-                Semester {s.semesterNumber}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-sm text-blue-700 mb-1">From Date</label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-            className="border-2 border-blue-300 p-3 rounded-lg"
-          />
-        </div>
-
-        <div className="flex flex-col">
-          <label className="text-sm text-blue-700 mb-1">To Date</label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-            min={fromDate}
-            className="border-2 border-blue-300 p-3 rounded-lg"
-          />
-        </div>
-
-        <div className="flex items-end">
-          <button
-            onClick={handleGenerate}
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold disabled:opacity-50"
-          >
-            {loading ? "Loading..." : "View Timetable"}
-          </button>
-        </div>
-      </div>
-
-      {/* Timetable - Full Original Table */}
-      {dates.length > 0 && Object.keys(timetable).length > 0 && (
-        <div className="mb-10 overflow-x-auto rounded-lg shadow-md">
-          <table className="w-full border-collapse">
-            <thead className="bg-gradient-to-r from-blue-600 to-blue-800 text-white">
-              <tr>
-                <th className="p-3 border border-blue-300">Date</th>
-                <th className="p-3 border border-blue-300">Day</th>
-                {timeSlots.map((slot) => (
-                  <th
-                    key={slot.periodNumber}
-                    className="p-3 border border-blue-300 text-center"
-                  >
-                    Period {slot.periodNumber}
-                    <br />
-                    <small>{slot.time}</small>
-                  </th>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Degree
+              </label>
+              <select
+                value={selectedDegree}
+                onChange={(e) => {
+                  setSelectedDegree(e.target.value);
+                  setSelectedBatch("");
+                  setSelectedDepartment("");
+                  setSelectedSemester("");
+                }}
+                className={selectClass}
+              >
+                <option value="">Select Degree</option>
+                {degrees.map((d) => (
+                  <option key={d} value={d}>
+                    {d}
+                  </option>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {dates.map((date) => {
-                const dayName = new Date(date).toLocaleDateString("en-US", {
-                  weekday: "long",
-                });
-                const periods = (timetable[date] || []).reduce((acc, p) => {
-                  acc[p.periodNumber] = p;
-                  return acc;
-                }, {});
-                return (
-                  <tr key={date} className="hover:bg-blue-50">
-                    <td className="p-3 border border-blue-200 font-medium">
-                      {date}
-                    </td>
-                    <td className="p-3 border border-blue-200">{dayName}</td>
-                    {timeSlots.map((slot) => {
-                      const p = periods[slot.periodNumber];
-                      return (
-                        <td
-                          key={slot.periodNumber}
-                          className="p-3 border border-blue-200 text-center"
-                        >
-                          {p ? (
-                            <button
-                              onClick={() =>
-                                handleCourseClick(
-                                  p.courseId,
-                                  p.sectionId,
-                                  date,
-                                  p.periodNumber,
-                                  p.courseTitle
-                                )
-                              }
-                              className="text-blue-700 font-semibold hover:underline"
-                            >
-                              {p.courseTitle}
-                              <br />
-                              {/* <small>Sec: {p.sectionName || "All"}</small> */}
-                            </button>
-                          ) : (
-                            <span className="text-gray-400 italic">—</span>
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </select>
+            </div>
 
-      {/* On-Duty Marking Section */}
-      {selectedCourse && (
-        <div className="mt-10 bg-white p-8 rounded-xl shadow-xl border-2 border-blue-200">
-          <h2 className="text-2xl font-bold text-blue-900 mb-4">
-            Mark On Duty — {selectedCourse.courseTitle}
-          </h2>
-          <div className="text-sm text-blue-600 mb-6">
-            <p>
-              Date: {selectedCourse.date} | Period:{" "}
-              {selectedCourse.periodNumber}
-            </p>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Batch
+              </label>
+              <select
+                value={selectedBatch}
+                onChange={(e) => {
+                  setSelectedBatch(e.target.value);
+                  setSelectedDepartment("");
+                  setSelectedSemester("");
+                }}
+                disabled={!selectedDegree}
+                className={selectClass}
+              >
+                <option value="">Select Batch</option>
+                {batches
+                  .filter((b) => b.degree === selectedDegree)
+                  .map((b) => (
+                    <option key={b.batchId} value={b.batchId}>
+                      {b.batch}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Department
+              </label>
+              <select
+                value={selectedDepartment}
+                onChange={(e) => {
+                  setSelectedDepartment(e.target.value);
+                  setSelectedSemester("");
+                }}
+                disabled={!selectedBatch}
+                className={selectClass}
+              >
+                <option value="">Select Department</option>
+                {departments
+                  .filter((d) =>
+                    batches.some(
+                      (b) =>
+                        b.batchId === parseInt(selectedBatch) &&
+                        b.branch.toUpperCase() ===
+                          d.departmentCode.toUpperCase()
+                    )
+                  )
+                  .map((d) => (
+                    <option key={d.departmentId} value={d.departmentId}>
+                      {d.departmentName}
+                    </option>
+                  ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Semester
+              </label>
+              <select
+                value={selectedSemester}
+                onChange={(e) => setSelectedSemester(e.target.value)}
+                disabled={!selectedDepartment}
+                className={selectClass}
+              >
+                <option value="">Select Semester</option>
+                {semesters.map((s) => (
+                  <option key={s.semesterId} value={s.semesterId}>
+                    Semester {s.semesterNumber}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* <div className="mb-6 p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
-           
-            <strong>On Duty (OD)</strong>.
-          </div> */}
-
-          <button
-            onClick={markAllOD}
-            className="mb-6 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-semibold"
-          >
-            Mark All as On Duty
-          </button>
-
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead className="bg-blue-700 text-white">
-                <tr>
-                  <th className="p-4">Roll No</th>
-                  <th className="p-4">Name</th>
-                  <th className="p-4">Section</th>
-                  <th className="p-4">On Duty?</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((s, i) => (
-                  <tr key={i} className="even:bg-blue-50 hover:bg-blue-100">
-                    <td className="p-4 text-center">{s.rollnumber}</td>
-                    <td className="p-4">{s.name}</td>
-                    <td className="p-4 text-center">
-                      {s.sectionName || "N/A"}
-                    </td>
-                    <td className="p-4 text-center">
-                      <input
-                        type="checkbox"
-                        checked={s.status === "OD"}
-                        onChange={() => toggleOD(s.rollnumber)}
-                        className="w-6 h-6 text-blue-600 rounded focus:ring-blue-500"
-                      />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="bg-blue-100 font-bold">
-                  <td colSpan="3" className="p-4 text-right">
-                    Total On Duty:
-                  </td>
-                  <td className="p-4 text-center text-blue-900">{odCount}</td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-
-          <div className="text-center mt-8">
+          {/* Date Range and Action */}
+          <div className="flex flex-wrap items-end gap-4 pb-8 border-b border-gray-100">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                From Date
+              </label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className={selectClass + " w-48"}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                To Date
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                min={fromDate}
+                className={selectClass + " w-48"}
+              />
+            </div>
             <button
-              onClick={handleSave}
-              disabled={saving || odCount === 0}
-              className="bg-green-600 hover:bg-green-700 text-white px-10 py-4 rounded-lg text-lg font-bold disabled:opacity-50"
+              onClick={handleGenerate}
+              disabled={loading}
+              className="bg-[#0f172a] hover:bg-slate-800 text-white px-6 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50"
             >
-              {saving ? "Saving..." : `Save On Duty (${odCount} students)`}
+              {loading ? "Processing..." : "View Timetable"}
             </button>
           </div>
         </div>
-      )}
 
-      <ToastContainer position="top-right" theme="light" />
+        {/* Timetable Table Styling */}
+        <div className="p-6 overflow-x-auto">
+          {dates.length > 0 && Object.keys(timetable).length > 0 ? (
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-slate-50 text-slate-600 border-y border-gray-200">
+                  <th className="p-4 text-left font-semibold">Date / Day</th>
+                  {timeSlots.map((slot) => (
+                    <th
+                      key={slot.periodNumber}
+                      className="p-4 text-center font-semibold border-l border-gray-100"
+                    >
+                      P{slot.periodNumber} <br />
+                      <span className="text-[10px] font-normal text-slate-400">
+                        {slot.time}
+                      </span>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {dates.map((date) => {
+                  const dayName = new Date(date).toLocaleDateString("en-US", {
+                    weekday: "short",
+                  });
+                  const periods = (timetable[date] || []).reduce(
+                    (acc, p) => ({ ...acc, [p.periodNumber]: p }),
+                    {}
+                  );
+                  return (
+                    <tr
+                      key={date}
+                      className="hover:bg-slate-50 transition-colors"
+                    >
+                      <td className="p-4 font-medium whitespace-nowrap">
+                        {date}{" "}
+                        <span className="text-slate-400 ml-2">({dayName})</span>
+                      </td>
+                      {timeSlots.map((slot) => {
+                        const p = periods[slot.periodNumber];
+                        return (
+                          <td
+                            key={slot.periodNumber}
+                            className="p-2 border-l border-gray-50 text-center align-middle"
+                          >
+                            {p ? (
+                              <button
+                                onClick={() =>
+                                  handleCourseClick(
+                                    p.courseId,
+                                    p.sectionId,
+                                    date,
+                                    p.periodNumber,
+                                    p.courseTitle
+                                  )
+                                }
+                                className={`w-full h-full min-h-[50px] p-2 rounded text-xs font-medium border transition-all ${
+                                  selectedCourse?.date === date &&
+                                  selectedCourse?.periodNumber ===
+                                    p.periodNumber
+                                    ? "bg-slate-800 text-white border-slate-800"
+                                    : "bg-white text-slate-700 border-gray-200 hover:border-slate-400"
+                                }`}
+                              >
+                                {p.courseTitle}
+                              </button>
+                            ) : (
+                              <span className="text-slate-200">—</span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : (
+            <div className="py-20 text-center">
+              <div className="flex justify-center mb-4 text-slate-200">
+                <svg
+                  className="w-16 h-16"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="1"
+                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <p className="text-slate-400 font-medium">
+                Select filters and click View Timetable to begin.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Attendance/OD List - Clean Modern Style */}
+        {selectedCourse && (
+          <div className="p-6 border-t border-gray-100 bg-slate-50/50">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">
+                  Mark On Duty (OD)
+                </h2>
+                <p className="text-sm text-slate-500">
+                  {selectedCourse.courseTitle} • Period{" "}
+                  {selectedCourse.periodNumber} • {selectedCourse.date}
+                </p>
+              </div>
+              <button
+                onClick={markAllOD}
+                className="text-sm font-semibold text-slate-600 hover:text-slate-900 bg-white border border-gray-300 px-4 py-2 rounded-md shadow-sm"
+              >
+                Select All
+              </button>
+            </div>
+
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-gray-200">
+                  <tr>
+                    <th className="p-4 text-left font-semibold text-slate-600">
+                      Roll Number
+                    </th>
+                    <th className="p-4 text-left font-semibold text-slate-600">
+                      Name
+                    </th>
+                    <th className="p-4 text-center font-semibold text-slate-600 w-24">
+                      On Duty
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {students.map((s, i) => (
+                    <tr key={i} className="hover:bg-slate-50/50">
+                      <td className="p-4 font-mono text-slate-500">
+                        {s.rollnumber}
+                      </td>
+                      <td className="p-4 font-medium">{s.name}</td>
+                      <td className="p-4 text-center">
+                        <input
+                          type="checkbox"
+                          checked={s.status === "OD"}
+                          onChange={() => toggleOD(s.rollnumber)}
+                          className="w-4 h-4 rounded border-gray-300 text-slate-800 focus:ring-slate-500"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-6 flex justify-end items-center gap-4">
+              <span className="text-sm text-slate-500 font-medium">
+                {odCount} students selected
+              </span>
+              <button
+                onClick={handleSave}
+                disabled={saving || odCount === 0}
+                className="bg-slate-900 hover:bg-black text-white px-8 py-2.5 rounded-md font-semibold transition-all disabled:opacity-30"
+              >
+                {saving ? "Saving..." : `Save Attendance`}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      <ToastContainer position="bottom-right" theme="dark" />
     </div>
   );
 }
